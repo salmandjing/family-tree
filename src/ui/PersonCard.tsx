@@ -2,9 +2,14 @@
  * PersonCard — the slide-in editor for one person (spec §9). Big touch targets,
  * name-only required, everything else optional. Houses the "Add parent / spouse
  * / child / photo", edit fields, notes, relatives navigation, and delete-to-bin.
+ *
+ * Text fields are backed by LOCAL draft state, not read straight from the
+ * persisted tree. Typing updates the draft synchronously (never dropping a
+ * keystroke) while persistence happens in the background; the draft re-seeds
+ * only when a different person is opened.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTree, useTreeService } from '../app/TreeContext';
 import { getPerson, patchPerson } from '../core/operations';
 import {
@@ -32,6 +37,56 @@ const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'unknown', label: 'Unknown' },
 ];
 
+interface Draft {
+  given: string;
+  family: string;
+  nicknames: string;
+  sex: Sex;
+  birthDate: string;
+  birthApprox: boolean;
+  birthPlace: string;
+  deceased: boolean;
+  deathDate: string;
+  deathApprox: boolean;
+  deathPlace: string;
+  notes: string;
+}
+
+function toDraft(p: Person): Draft {
+  return {
+    given: p.name.given,
+    family: p.name.family,
+    nicknames: p.name.nicknames.join(', '),
+    sex: p.sex,
+    birthDate: p.birth.date ?? '',
+    birthApprox: p.birth.approx,
+    birthPlace: p.birth.place,
+    deceased: !p.living,
+    deathDate: p.death.date ?? '',
+    deathApprox: p.death.approx,
+    deathPlace: p.death.place,
+    notes: p.notes,
+  };
+}
+
+/** Build the persisted fields entirely from the draft (no reliance on stale state). */
+function draftToFields(d: Draft): Partial<Omit<Person, 'id'>> {
+  return {
+    name: {
+      given: d.given,
+      family: d.family,
+      nicknames: d.nicknames.split(',').map((s) => s.trim()).filter(Boolean),
+    },
+    sex: d.sex,
+    birth: { date: d.birthDate || null, approx: d.birthApprox, place: d.birthPlace },
+    living: !d.deceased,
+    death: d.deceased
+      ? { date: d.deathDate || null, approx: d.deathApprox, place: d.deathPlace }
+      : { date: null, approx: false, place: '' },
+    notes: d.notes,
+  };
+}
+
 export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
   const tree = useTree();
   const service = useTreeService();
@@ -41,6 +96,15 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [childPickerOpen, setChildPickerOpen] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(person ? toDraft(person) : null);
+
+  // Re-seed the draft only when a different person is opened, so background
+  // persistence (which re-renders on every commit) never clobbers typing.
+  useEffect(() => {
+    const p = getPerson(service.getTree(), personId);
+    setDraft(p ? toDraft(p) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personId]);
 
   const relatives = useMemo(() => {
     if (!person) return { parents: [], spouses: [], children: [] };
@@ -51,7 +115,7 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
     };
   }, [tree, personId, person]);
 
-  if (!person) {
+  if (!person || !draft) {
     return (
       <aside className="person-card" role="dialog" aria-label="Person details">
         <p>This person no longer exists.</p>
@@ -72,24 +136,28 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
     }
   }
 
-  const update = (fields: Partial<Omit<Person, 'id'>>) =>
-    run(() => service.apply((t, clock) => patchPerson(t, personId, fields, clock)));
+  /** Update the local draft immediately and persist in the background. */
+  function edit(patch: Partial<Draft>) {
+    setDraft((prev) => {
+      const next = { ...(prev as Draft), ...patch };
+      // Fire-and-forget persistence; typing stays snappy and lossless.
+      void service
+        .apply((t, clock) => patchPerson(t, personId, draftToFields(next), clock))
+        .catch((e) => setError((e as Error).message));
+      return next;
+    });
+  }
 
   const handleAddParent = () =>
     run(async () => {
-      const r = await addParentViaService();
-      onSelect(r);
+      let newId = '';
+      await service.apply((t, clock) => {
+        const res = addParent(t, personId, { given: '' }, clock);
+        newId = res.person.id;
+        return res.tree;
+      });
+      onSelect(newId);
     });
-
-  async function addParentViaService(): Promise<string> {
-    let newId = '';
-    await service.apply((t, clock) => {
-      const res = addParent(t, personId, { given: '' }, clock);
-      newId = res.person.id;
-      return res.tree;
-    });
-    return newId;
-  }
 
   const handleAddSpouse = () =>
     run(async () => {
@@ -125,7 +193,7 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
 
   const handlePhoto = (file: File | undefined) => {
     if (!file) return;
-    run(() => service.addPhoto(personId, file).then(() => undefined));
+    run(() => service.addPhoto(personId, file));
   };
 
   const handleDelete = () =>
@@ -200,45 +268,22 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
       <form className="person-form" onSubmit={(e) => e.preventDefault()}>
         <label>
           Given name
-          <input
-            value={person.name.given}
-            onChange={(e) =>
-              update({ name: { ...person.name, given: e.target.value } })
-            }
-          />
+          <input value={draft.given} onChange={(e) => edit({ given: e.target.value })} />
         </label>
         <label>
           Family name
-          <input
-            value={person.name.family}
-            onChange={(e) =>
-              update({ name: { ...person.name, family: e.target.value } })
-            }
-          />
+          <input value={draft.family} onChange={(e) => edit({ family: e.target.value })} />
         </label>
         <label>
           Nicknames (comma-separated)
           <input
-            value={person.name.nicknames.join(', ')}
-            onChange={(e) =>
-              update({
-                name: {
-                  ...person.name,
-                  nicknames: e.target.value
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                },
-              })
-            }
+            value={draft.nicknames}
+            onChange={(e) => edit({ nicknames: e.target.value })}
           />
         </label>
         <label>
           Sex
-          <select
-            value={person.sex}
-            onChange={(e) => update({ sex: e.target.value as Sex })}
-          >
+          <select value={draft.sex} onChange={(e) => edit({ sex: e.target.value as Sex })}>
             {SEX_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -251,27 +296,21 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
           <legend>Born</legend>
           <input
             placeholder="e.g. 1950 or around 1950"
-            value={person.birth.date ?? ''}
-            onChange={(e) =>
-              update({ birth: { ...person.birth, date: e.target.value || null } })
-            }
+            value={draft.birthDate}
+            onChange={(e) => edit({ birthDate: e.target.value })}
           />
           <label className="inline">
             <input
               type="checkbox"
-              checked={person.birth.approx}
-              onChange={(e) =>
-                update({ birth: { ...person.birth, approx: e.target.checked } })
-              }
+              checked={draft.birthApprox}
+              onChange={(e) => edit({ birthApprox: e.target.checked })}
             />
             Approximate
           </label>
           <input
             placeholder="Place"
-            value={person.birth.place}
-            onChange={(e) =>
-              update({ birth: { ...person.birth, place: e.target.value } })
-            }
+            value={draft.birthPlace}
+            onChange={(e) => edit({ birthPlace: e.target.value })}
           />
         </fieldset>
 
@@ -280,43 +319,30 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
           <label className="inline">
             <input
               type="checkbox"
-              checked={!person.living}
-              onChange={(e) =>
-                update({
-                  living: !e.target.checked,
-                  death: e.target.checked
-                    ? person.death
-                    : { date: null, approx: false, place: '' },
-                })
-              }
+              checked={draft.deceased}
+              onChange={(e) => edit({ deceased: e.target.checked })}
             />
             Deceased
           </label>
-          {!person.living && (
+          {draft.deceased && (
             <>
               <input
                 placeholder="e.g. 2001 or around 2001"
-                value={person.death.date ?? ''}
-                onChange={(e) =>
-                  update({ death: { ...person.death, date: e.target.value || null } })
-                }
+                value={draft.deathDate}
+                onChange={(e) => edit({ deathDate: e.target.value })}
               />
               <label className="inline">
                 <input
                   type="checkbox"
-                  checked={person.death.approx}
-                  onChange={(e) =>
-                    update({ death: { ...person.death, approx: e.target.checked } })
-                  }
+                  checked={draft.deathApprox}
+                  onChange={(e) => edit({ deathApprox: e.target.checked })}
                 />
                 Approximate
               </label>
               <input
                 placeholder="Place"
-                value={person.death.place}
-                onChange={(e) =>
-                  update({ death: { ...person.death, place: e.target.value } })
-                }
+                value={draft.deathPlace}
+                onChange={(e) => edit({ deathPlace: e.target.value })}
               />
             </>
           )}
@@ -327,8 +353,8 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
           <textarea
             rows={5}
             placeholder="Anything worth remembering — stories, places, relationships…"
-            value={person.notes}
-            onChange={(e) => update({ notes: e.target.value })}
+            value={draft.notes}
+            onChange={(e) => edit({ notes: e.target.value })}
           />
         </label>
       </form>
