@@ -35,7 +35,7 @@ describe('DriveClient request shapes', () => {
   });
 
   it('sends the bearer token on list requests', async () => {
-    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       if (String(input).includes('token')) return jsonResponse({ access_token: 'abc' });
       return jsonResponse({ files: [] });
     });
