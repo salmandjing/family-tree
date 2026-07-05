@@ -156,15 +156,21 @@ export async function handleRequest(
 
   // ── PUT /backup: write latest + timestamped, then prune ─────────────────
   if (path === '/backup' && request.method === 'PUT') {
-    // Reject oversized bodies up front (storage-abuse guard). Trust the declared
-    // length when present; the JSON parse below bounds it regardless.
-    const declaredLen = Number(request.headers.get('Content-Length') ?? '0');
-    if (declaredLen > MAX_BACKUP_BYTES) {
+    // Storage-abuse guard. Content-Length is a cheap early reject but is
+    // client-controllable, so the real cap is enforced on the actual bytes read
+    // BEFORE parsing. (Cloudflare also caps request bodies at the platform
+    // level; this bounds what we buffer and what could reach Drive.)
+    const declaredLen = Number(request.headers.get('Content-Length'));
+    if (Number.isFinite(declaredLen) && declaredLen > MAX_BACKUP_BYTES) {
+      return json({ error: 'Backup too large' }, 413);
+    }
+    const raw = await request.text();
+    if (raw.length > MAX_BACKUP_BYTES) {
       return json({ error: 'Backup too large' }, 413);
     }
     let payload: BackupRequestBody;
     try {
-      payload = (await request.json()) as BackupRequestBody;
+      payload = JSON.parse(raw) as BackupRequestBody;
     } catch {
       return json({ error: 'Body must be JSON' }, 400);
     }
@@ -176,9 +182,6 @@ export async function handleRequest(
       typeof payload.meta.deviceId !== 'string'
     ) {
       return json({ error: 'Invalid backup payload' }, 400);
-    }
-    if (payload.content.length > MAX_BACKUP_BYTES) {
-      return json({ error: 'Backup too large' }, 413);
     }
 
     try {
