@@ -16,6 +16,7 @@ describe('DriveClient request shapes', () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('token')) return jsonResponse({ access_token: 't' });
+      if (url.includes('mimeType')) return jsonResponse({ files: [{ id: 'folder-1' }] });
       if (url.includes('/upload/')) {
         uploadBody = String(init?.body ?? '');
         return jsonResponse({ id: 'x', name: LATEST_NAME });
@@ -67,6 +68,7 @@ describe('DriveClient request shapes', () => {
   it('throws a clear error when upload fails', async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).includes('token')) return jsonResponse({ access_token: 't' });
+      if (String(input).includes('mimeType')) return jsonResponse({ files: [{ id: 'folder-1' }] });
       if (String(input).includes('/upload/')) return new Response('boom', { status: 500 });
       return jsonResponse({ files: [] });
     });

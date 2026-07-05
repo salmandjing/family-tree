@@ -32,6 +32,8 @@ export interface TreeMeta {
 }
 
 export const LATEST_NAME = 'family-tree-latest.json';
+export const FOLDER_NAME = 'Family Tree Backups';
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -45,6 +47,7 @@ const globalFetch: FetchLike = (input, init) => fetch(input, init);
 
 export class DriveClient {
   private accessToken: string | null = null;
+  private folderId: string | null = null;
 
   constructor(
     private readonly config: DriveConfig,
@@ -139,11 +142,47 @@ export class DriveClient {
     );
   }
 
+  /**
+   * Find (or create) the "Family Tree Backups" folder and return its id, so all
+   * backups live in one place instead of the Drive root. Cached per request.
+   */
+  async ensureFolder(): Promise<string> {
+    if (this.folderId) return this.folderId;
+    const params = new URLSearchParams({
+      q: `name = '${FOLDER_NAME}' and mimeType = '${FOLDER_MIME}' and trashed = false`,
+      fields: 'files(id)',
+      pageSize: '1',
+    });
+    const res = await this.fetchImpl(`${API}/files?${params}`, {
+      headers: await this.authHeaders(),
+    });
+    if (res.ok) {
+      const json = (await res.json()) as { files?: { id: string }[] };
+      if (json.files?.[0]) {
+        this.folderId = json.files[0].id;
+        return this.folderId;
+      }
+    }
+    // Not found → create it.
+    const create = await this.fetchImpl(`${API}/files`, {
+      method: 'POST',
+      headers: { ...(await this.authHeaders()), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
+    });
+    if (!create.ok) {
+      throw new Error(`Drive folder create failed (${create.status})`);
+    }
+    const created = (await create.json()) as { id: string };
+    this.folderId = created.id;
+    return this.folderId;
+  }
+
   private async upload(
     fileId: string | null,
     name: string,
     content: string,
     meta: TreeMeta,
+    parents?: string[],
   ): Promise<DriveFileMeta> {
     const boundary = `boundary_${meta.revision}_${name.length}`;
     const metadata: Record<string, unknown> = {
@@ -154,6 +193,8 @@ export class DriveClient {
         savedAt: meta.savedAt,
       },
     };
+    // parents are only settable on create; a PATCH keeps the file where it is.
+    if (!fileId && parents && parents.length > 0) metadata.parents = parents;
     const url = fileId
       ? `${UPLOAD}/files/${fileId}?uploadType=multipart`
       : `${UPLOAD}/files?uploadType=multipart`;
@@ -171,20 +212,23 @@ export class DriveClient {
     return (await res.json()) as DriveFileMeta;
   }
 
-  /** Create or update `family-tree-latest.json`. */
+  /** Create or update `family-tree-latest.json` (inside the backups folder). */
   async putLatest(content: string, meta: TreeMeta): Promise<DriveFileMeta> {
     const existing = await this.findLatest();
-    return this.upload(existing?.id ?? null, LATEST_NAME, content, meta);
+    // Only new files need a parent folder; updates stay where they already are.
+    const parents = existing ? undefined : [await this.ensureFolder()];
+    return this.upload(existing?.id ?? null, LATEST_NAME, content, meta, parents);
   }
 
-  /** Create an immutable timestamped copy `family-tree-<ts>.json`. */
+  /** Create an immutable timestamped copy in the backups folder. */
   async putTimestamped(
     content: string,
     meta: TreeMeta,
     timestamp: string,
   ): Promise<DriveFileMeta> {
     const safe = timestamp.replace(/[:]/g, '-').replace(/\..+$/, '');
-    return this.upload(null, `family-tree-${safe}.json`, content, meta);
+    const parents = [await this.ensureFolder()];
+    return this.upload(null, `family-tree-${safe}.json`, content, meta, parents);
   }
 
   async deleteFile(id: string): Promise<void> {

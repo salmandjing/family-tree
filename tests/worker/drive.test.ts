@@ -38,6 +38,10 @@ function mockFetch(routes: {
       routes.del?.();
       return new Response(null, { status: 204 });
     }
+    // The folder-existence query (contains mimeType) resolves to an existing folder.
+    if (url.includes('mimeType')) {
+      return jsonResponse({ files: [{ id: 'folder-1' }] });
+    }
     if (url.includes('/drive/v3/files')) {
       return jsonResponse(routes.files ?? { files: [] });
     }
@@ -163,6 +167,23 @@ describe('DriveClient writes', () => {
     const drive = new DriveClient(config, fetchImpl as unknown as typeof fetch);
     await drive.putTimestamped('{}', { revision: 1, deviceId: 'd', savedAt: 'x' }, '2026-07-02T14:00:00.000Z');
     expect(captured[0]).toContain('family-tree-2026-07-02T14-00-00.json');
+  });
+
+  it('creates backups inside the Family Tree Backups folder', async () => {
+    let uploadBody = '';
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('token')) return jsonResponse({ access_token: 't' });
+      if (url.includes('mimeType')) return jsonResponse({ files: [{ id: 'folder-1' }] });
+      if (url.includes('/upload/')) {
+        uploadBody = String(init?.body ?? '');
+        return jsonResponse({ id: 'ts', name: 'x' });
+      }
+      return jsonResponse({ files: [] }); // no existing latest
+    });
+    const drive = new DriveClient(config, fetchImpl as unknown as typeof fetch);
+    await drive.putTimestamped('{}', { revision: 1, deviceId: 'd', savedAt: 'x' }, '2026-07-05T00:00:00Z');
+    expect(uploadBody).toContain('"parents":["folder-1"]');
   });
 
   it('ignores 404 on delete', async () => {
