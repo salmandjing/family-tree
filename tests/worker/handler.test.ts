@@ -194,6 +194,33 @@ describe('PUT /backup', () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it('rejects an oversized declared Content-Length with 413', async () => {
+    const res = await handleRequest(
+      req('/backup', {
+        ip: 'b4',
+        method: 'PUT',
+        headers: { ...authHeader, 'Content-Length': String(40 * 1024 * 1024) },
+        body: goodBody,
+      }),
+      env,
+      depsWith(new FakeDrive()),
+    );
+    expect(res.status).toBe(413);
+  });
+
+  it('rejects an oversized content payload with 413', async () => {
+    const huge = JSON.stringify({
+      content: 'x'.repeat(31 * 1024 * 1024),
+      meta: { revision: 1, deviceId: 'd', savedAt: 's' },
+    });
+    const res = await handleRequest(
+      req('/backup', { ip: 'b5', method: 'PUT', headers: authHeader, body: huge }),
+      env,
+      depsWith(new FakeDrive()),
+    );
+    expect(res.status).toBe(413);
+  });
 });
 
 describe('rate limiting', () => {

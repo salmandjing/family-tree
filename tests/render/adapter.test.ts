@@ -80,6 +80,25 @@ describe('toRenderData', () => {
     expect(toRenderData(tree, urls)[0].data._hasPhoto).toBe(true);
   });
 
+  it('HTML-escapes names so family-chart cannot execute injected markup (XSS)', () => {
+    const evil = '<img src=x onerror="steal()">';
+    const a = addPerson(createEmptyTree('d'), { given: evil, family: 'A & B' });
+    const datum = toRenderData(a.tree)[0];
+    expect(datum.data['first name']).not.toContain('<img');
+    expect(datum.data['first name']).toBe(
+      '&lt;img src=x onerror=&quot;steal()&quot;&gt;',
+    );
+    expect(datum.data['last name']).toBe('A &amp; B');
+  });
+
+  it('escapes an approximate birthday label too', () => {
+    const a = addPerson(createEmptyTree('d'), {
+      given: 'X',
+      birth: { date: '<b>1950</b>', approx: true },
+    });
+    expect(toRenderData(a.tree)[0].data.birthday).toBe('~&lt;b&gt;1950&lt;/b&gt;');
+  });
+
   it('leaves avatar empty when no photo/url', () => {
     const a = addPerson(createEmptyTree('d'), { given: 'A' });
     const datum = toRenderData(a.tree)[0];

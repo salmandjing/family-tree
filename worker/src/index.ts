@@ -23,8 +23,18 @@ export interface Env {
   ALLOWED_ORIGIN?: string;
 }
 
-// Per-isolate limiter: 10 attempts / minute / IP (spec §7).
+// Per-isolate limiter: 10 attempts / minute / IP (spec §7). Best-effort across
+// Cloudflare isolates; a Durable Object would enforce this globally.
 const limiter = new RateLimiter(10, 60_000);
+
+// Coarser limit for the unauthenticated /health endpoint, which touches the
+// Drive API — prevents anonymous callers from exhausting Drive quota / Worker
+// CPU by hammering it.
+const healthLimiter = new RateLimiter(30, 60_000);
+
+// Reject oversized backup bodies. Expected worst case at ~300 people with photos
+// is ~15–20 MB (spec §5); 30 MB leaves headroom without allowing storage abuse.
+const MAX_BACKUP_BYTES = 30 * 1024 * 1024;
 
 /**
  * CORS headers. ALLOWED_ORIGIN is a comma-separated allowlist; the request's
@@ -95,8 +105,11 @@ export async function handleRequest(
     return new Response(null, { status: 204, headers: cors });
   }
 
-  // ── Health: unauthenticated, cheap (spec §8) ────────────────────────────
+  // ── Health: unauthenticated (spec §8), but rate-limited since it hits Drive.
   if (path === '/health' && request.method === 'GET') {
+    if (!healthLimiter.check(clientIp(request), deps.now()).allowed) {
+      return json({ ok: false, error: 'Rate limited' }, 429);
+    }
     try {
       const drive = deps.makeDrive(env);
       const meta = await drive.latestMeta();
@@ -143,6 +156,12 @@ export async function handleRequest(
 
   // ── PUT /backup: write latest + timestamped, then prune ─────────────────
   if (path === '/backup' && request.method === 'PUT') {
+    // Reject oversized bodies up front (storage-abuse guard). Trust the declared
+    // length when present; the JSON parse below bounds it regardless.
+    const declaredLen = Number(request.headers.get('Content-Length') ?? '0');
+    if (declaredLen > MAX_BACKUP_BYTES) {
+      return json({ error: 'Backup too large' }, 413);
+    }
     let payload: BackupRequestBody;
     try {
       payload = (await request.json()) as BackupRequestBody;
@@ -157,6 +176,9 @@ export async function handleRequest(
       typeof payload.meta.deviceId !== 'string'
     ) {
       return json({ error: 'Invalid backup payload' }, 400);
+    }
+    if (payload.content.length > MAX_BACKUP_BYTES) {
+      return json({ error: 'Backup too large' }, 413);
     }
 
     try {

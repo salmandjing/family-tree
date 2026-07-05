@@ -56,11 +56,12 @@ export class RateLimiter {
   }
 }
 
-/** Best-effort client IP from Cloudflare headers. */
+/**
+ * Client IP for rate-limit keying. Only CF-Connecting-IP is trusted — it is set
+ * by Cloudflare and cannot be spoofed by the client. We deliberately do NOT fall
+ * back to X-Forwarded-For (client-controllable), which would let an attacker mint
+ * unlimited fresh rate-limit buckets.
+ */
 export function clientIp(request: Request): string {
-  return (
-    request.headers.get('CF-Connecting-IP') ??
-    request.headers.get('X-Forwarded-For') ??
-    'unknown'
-  );
+  return request.headers.get('CF-Connecting-IP') ?? 'unknown';
 }

@@ -34,6 +34,24 @@ export interface RenderDatum {
   };
 }
 
+/**
+ * Escape HTML-significant characters. family-chart renders the display fields
+ * into `innerHTML` WITHOUT escaping, so a person name/date containing markup
+ * would otherwise execute as DOM (stored XSS — e.g. from an imported JSON that
+ * could steal the passphrase from localStorage). We escape at this sink so the
+ * renderer only ever receives inert text.
+ */
+const HTML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+function htmlEscape(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
+}
+
 /** family-chart requires M|F; map 'unknown' to a neutral default ('M'). */
 function toGender(sex: Person['sex']): 'M' | 'F' {
   return sex === 'F' ? 'F' : 'M';
@@ -64,9 +82,10 @@ export function toRenderData(
       id: person.id,
       data: {
         gender: toGender(person.sex),
-        'first name': person.name.given,
-        'last name': person.name.family,
-        birthday: birthdayLabel(person),
+        // Escaped: family-chart injects these into innerHTML unescaped.
+        'first name': htmlEscape(person.name.given),
+        'last name': htmlEscape(person.name.family),
+        birthday: htmlEscape(birthdayLabel(person)),
         avatar: (primaryPhoto && avatarUrls.get(primaryPhoto)) || '',
         _sex: person.sex,
         _living: person.living,
