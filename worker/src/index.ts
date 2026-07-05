@@ -19,31 +19,37 @@ export interface Env {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_REFRESH_TOKEN: string;
+  /** Comma-separated allowlist of page origins (CORS). '*' allows any. */
   ALLOWED_ORIGIN?: string;
 }
 
 // Per-isolate limiter: 10 attempts / minute / IP (spec §7).
 const limiter = new RateLimiter(10, 60_000);
 
-function corsHeaders(env: Env): Record<string, string> {
+/**
+ * CORS headers. ALLOWED_ORIGIN is a comma-separated allowlist; the request's
+ * Origin is echoed back when it matches (so more than one site can use the same
+ * Worker). Auth is via Bearer token, not cookies, so this is a convenience/
+ * hygiene control rather than the security boundary.
+ */
+function corsHeaders(env: Env, request: Request): Record<string, string> {
+  const allow = (env.ALLOWED_ORIGIN ?? '*')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const origin = request.headers.get('Origin') ?? '';
+  const allowOrigin = allow.includes('*')
+    ? '*'
+    : allow.includes(origin)
+      ? origin
+      : (allow[0] ?? '*');
   return {
-    'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN ?? '*',
+    'Access-Control-Allow-Origin': allowOrigin,
+    Vary: 'Origin',
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Max-Age': '86400',
   };
-}
-
-function json(
-  body: unknown,
-  status: number,
-  env: Env,
-  extra: Record<string, string> = {},
-): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(env), ...extra },
-  });
 }
 
 export interface BackupRequestBody {
@@ -74,8 +80,19 @@ export async function handleRequest(
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, '') || '/';
 
+  const cors = corsHeaders(env, request);
+  const json = (
+    body: unknown,
+    status: number,
+    extra: Record<string, string> = {},
+  ): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...cors, ...extra },
+    });
+
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders(env) });
+    return new Response(null, { status: 204, headers: cors });
   }
 
   // ── Health: unauthenticated, cheap (spec §8) ────────────────────────────
@@ -83,17 +100,13 @@ export async function handleRequest(
     try {
       const drive = deps.makeDrive(env);
       const meta = await drive.latestMeta();
-      return json(
-        {
-          ok: true,
-          lastBackupAt: meta?.savedAt ?? null,
-          lastBackupRevision: meta?.revision ?? null,
-        },
-        200,
-        env,
-      );
+      return json({
+        ok: true,
+        lastBackupAt: meta?.savedAt ?? null,
+        lastBackupRevision: meta?.revision ?? null,
+      }, 200);
     } catch (e) {
-      return json({ ok: false, error: (e as Error).message }, 502, env);
+      return json({ ok: false, error: (e as Error).message }, 502);
     }
   }
 
@@ -101,14 +114,14 @@ export async function handleRequest(
   const ip = clientIp(request);
   const rl = limiter.check(ip, deps.now());
   if (!rl.allowed) {
-    return json({ error: 'Too many attempts. Please wait.' }, 429, env, {
+    return json({ error: 'Too many attempts. Please wait.' }, 429, {
       'Retry-After': String(Math.ceil(rl.retryAfterMs / 1000)),
     });
   }
 
   const token = extractBearer(request);
   if (!token || !(await verifyPassphrase(token, env.PASSPHRASE_HASH))) {
-    return json({ error: 'Unauthorized' }, 401, env);
+    return json({ error: 'Unauthorized' }, 401);
   }
 
   const drive = deps.makeDrive(env);
@@ -117,14 +130,14 @@ export async function handleRequest(
   if (path === '/latest' && request.method === 'GET') {
     try {
       const meta = await drive.latestMeta();
-      if (!meta) return json({ meta: null }, 200, env);
+      if (!meta) return json({ meta: null }, 200);
       if (url.searchParams.get('content') === '1') {
         const content = await drive.downloadLatest();
-        return json({ meta, content }, 200, env);
+        return json({ meta, content }, 200);
       }
-      return json({ meta }, 200, env);
+      return json({ meta }, 200);
     } catch (e) {
-      return json({ error: (e as Error).message }, 502, env);
+      return json({ error: (e as Error).message }, 502);
     }
   }
 
@@ -134,7 +147,7 @@ export async function handleRequest(
     try {
       payload = (await request.json()) as BackupRequestBody;
     } catch {
-      return json({ error: 'Body must be JSON' }, 400, env);
+      return json({ error: 'Body must be JSON' }, 400);
     }
     if (
       !payload ||
@@ -143,7 +156,7 @@ export async function handleRequest(
       typeof payload.meta.revision !== 'number' ||
       typeof payload.meta.deviceId !== 'string'
     ) {
-      return json({ error: 'Invalid backup payload' }, 400, env);
+      return json({ error: 'Invalid backup payload' }, 400);
     }
 
     try {
@@ -160,17 +173,17 @@ export async function handleRequest(
       );
       for (const id of plan.delete) await drive.deleteFile(id);
 
-      return json(
-        { ok: true, revision: payload.meta.revision, pruned: plan.delete.length },
-        200,
-        env,
-      );
+      return json({
+        ok: true,
+        revision: payload.meta.revision,
+        pruned: plan.delete.length,
+      }, 200);
     } catch (e) {
-      return json({ error: (e as Error).message }, 502, env);
+      return json({ error: (e as Error).message }, 502);
     }
   }
 
-  return json({ error: 'Not found' }, 404, env);
+  return json({ error: 'Not found' }, 404);
 }
 
 export default {

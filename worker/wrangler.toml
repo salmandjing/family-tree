@@ -16,4 +16,5 @@ routes = [
 #
 # Non-secret vars:
 [vars]
-ALLOWED_ORIGIN = "https://salmandjing.github.io"
+# Comma-separated CORS allowlist of page origins that may call the Worker.
+ALLOWED_ORIGIN = "https://djsalman.dev,https://salmandjing.github.io"

@@ -1,0 +1,33 @@
+name: Backup health check
+
+# Free uptime monitor for the backup Worker (spec §8). Runs daily and on
+# demand; if the Worker is unreachable or Drive auth is broken, the job fails
+# and GitHub emails the repo owner. No third-party account needed.
+
+on:
+  schedule:
+    - cron: '0 13 * * *' # daily at 13:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health and assert ok:true
+        run: |
+          URL="https://backup.djsalman.dev/health"
+          echo "Checking $URL"
+          body=$(curl -sS --max-time 20 -w "\n%{http_code}" "$URL") || {
+            echo "::error::Worker unreachable"; exit 1;
+          }
+          code=$(echo "$body" | tail -1)
+          json=$(echo "$body" | sed '$d')
+          echo "HTTP $code — $json"
+          if [ "$code" != "200" ]; then
+            echo "::error::Health endpoint returned HTTP $code"; exit 1;
+          fi
+          if ! echo "$json" | grep -q '"ok":true'; then
+            echo "::error::Health endpoint reports a problem (Drive auth may be broken): $json"
+            exit 1
+          fi
+          echo "✓ Backup service healthy"
