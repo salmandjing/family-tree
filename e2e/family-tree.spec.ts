@@ -137,6 +137,17 @@ test('delete to bin then restore', async ({ page }) => {
   await expect(page.locator('.tree-canvas').getByText('Temp', { exact: false }).first()).toBeVisible();
 });
 
+test('"Whole tree" button closes the card and returns to the overview', async ({ page }) => {
+  const card = await addFirstPerson(page);
+  await card.getByLabel(/given name/i).fill('Root');
+  await addRelative(page, /\+ child/i, 'Branch');
+  // A person card is open; the whole-tree button should be present and close it.
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: /whole tree/i }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0); // card closed
+  await expect(page.locator('.tree-canvas .card-inner')).toHaveCount(2); // tree still there
+});
+
 test('data persists across reload (IndexedDB)', async ({ page }) => {
   const card = await addFirstPerson(page);
   await card.getByLabel(/given name/i).pressSequentially('Persist', { delay: 10 });

@@ -14,9 +14,11 @@ import {
 interface TreeCanvasProps {
   onSelect: (id: string) => void;
   focusId?: string;
+  /** Increment to request a "fit whole tree" view. */
+  fitNonce?: number;
 }
 
-export function TreeCanvas({ onSelect, focusId }: TreeCanvasProps) {
+export function TreeCanvas({ onSelect, focusId, fitNonce }: TreeCanvasProps) {
   const tree = useTree();
   const service = useTreeService();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,6 +61,11 @@ export function TreeCanvas({ onSelect, focusId }: TreeCanvasProps) {
   useEffect(() => {
     if (chartRef.current && focusId) chartRef.current.focus(focusId);
   }, [focusId]);
+
+  // Fit the whole tree when requested (the "Whole tree" button).
+  useEffect(() => {
+    if (chartRef.current && fitNonce) chartRef.current.fit();
+  }, [fitNonce]);
 
   // Tear down on unmount.
   useEffect(() => {

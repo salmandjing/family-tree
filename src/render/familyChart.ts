@@ -11,6 +11,8 @@ import type { RenderDatum } from './adapter';
 export interface ChartHandle {
   update(data: RenderDatum[], mainId?: string): void;
   focus(id: string): void;
+  /** Zoom/pan to show the whole tree in the viewport. */
+  fit(): void;
   destroy(): void;
 }
 
@@ -76,6 +78,9 @@ export function createFamilyChart(
     focus(id: string) {
       f3Chart.updateMainId(id);
       f3Chart.updateTree({ tree_position: 'main_to_middle' });
+    },
+    fit() {
+      f3Chart.updateTree({ tree_position: 'fit' });
     },
     destroy() {
       container.innerHTML = '';

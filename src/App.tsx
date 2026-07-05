@@ -23,11 +23,19 @@ function Workspace() {
   const { status, conflict, resolveConflict, retry } = useSync();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | undefined>(undefined);
+  const [fitNonce, setFitNonce] = useState(0);
   const [panel, setPanel] = useState<Panel>('none');
 
   const select = (id: string) => {
     setSelectedId(id);
     setFocusId(id);
+  };
+
+  // Close any open card and zoom out to the whole tree.
+  const showWholeTree = () => {
+    setSelectedId(null);
+    setFocusId(undefined);
+    setFitNonce((n) => n + 1);
   };
 
   return (
@@ -40,7 +48,16 @@ function Workspace() {
 
       <main className="workspace">
         {hasRenderableData(tree) ? (
-          <TreeCanvas onSelect={select} focusId={focusId} />
+          <>
+            <TreeCanvas onSelect={select} focusId={focusId} fitNonce={fitNonce} />
+            <button
+              className="whole-tree-btn"
+              onClick={showWholeTree}
+              aria-label="Show the whole tree"
+            >
+              ⤢ Whole tree
+            </button>
+          </>
         ) : (
           <EmptyState onCreated={select} />
         )}
