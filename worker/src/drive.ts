@@ -38,12 +38,17 @@ const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 
 type FetchLike = typeof fetch;
 
+// On the Workers runtime the global `fetch` must be called unbound; invoking it
+// through a stored reference (this.fetchImpl) triggers an "Illegal invocation"
+// error. Wrap it so the default always calls the global directly.
+const globalFetch: FetchLike = (input, init) => fetch(input, init);
+
 export class DriveClient {
   private accessToken: string | null = null;
 
   constructor(
     private readonly config: DriveConfig,
-    private readonly fetchImpl: FetchLike = fetch,
+    private readonly fetchImpl: FetchLike = globalFetch,
   ) {}
 
   private async token(): Promise<string> {

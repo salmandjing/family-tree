@@ -6,6 +6,11 @@
 
 import type { TreeMeta } from './types';
 
+// The global `fetch` must be called unbound; invoking it through a stored
+// reference (this.fetchImpl) throws "Illegal invocation" in browsers and on
+// the Workers runtime. Wrap it so the default always calls the global directly.
+const globalFetch: typeof fetch = (input, init) => fetch(input, init);
+
 export interface LatestResponse {
   meta: TreeMeta | null;
   content?: string;
@@ -28,7 +33,7 @@ export class HttpWorkerApi implements WorkerApi {
   constructor(
     private readonly baseUrl: string,
     private readonly passphrase: string,
-    private readonly fetchImpl: typeof fetch = fetch,
+    private readonly fetchImpl: typeof fetch = globalFetch,
   ) {}
 
   private authHeaders(): Record<string, string> {

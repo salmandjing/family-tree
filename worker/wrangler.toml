@@ -2,6 +2,12 @@ name = "family-tree-backup"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
+# Served on the user's own Cloudflare-managed domain. Wrangler provisions the
+# DNS record and TLS cert automatically because the zone is in this account.
+routes = [
+  { pattern = "backup.djsalman.dev", custom_domain = true }
+]
+
 # Secrets (set with `wrangler secret put <NAME>` — never commit these):
 #   PASSPHRASE_HASH        SHA-256 hex of the shared passphrase
 #   GOOGLE_CLIENT_ID       OAuth client id (drive.file scope)
@@ -10,4 +16,4 @@ compatibility_date = "2024-11-01"
 #
 # Non-secret vars:
 [vars]
-ALLOWED_ORIGIN = "https://djsalman.dev"
+ALLOWED_ORIGIN = "https://salmandjing.github.io"
