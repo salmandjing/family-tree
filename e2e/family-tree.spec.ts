@@ -26,7 +26,10 @@ async function focusPerson(page: Page, name: string) {
   const search = page.getByPlaceholder(/search a name/i);
   await search.fill(name);
   await page.getByRole('option', { name: new RegExp(name) }).first().click();
-  await search.fill('');
+  // Wait until the card for THIS person is fully open before proceeding.
+  await expect(
+    page.getByRole('dialog').getByRole('heading', { name: new RegExp(name) }),
+  ).toBeVisible();
   return page.getByRole('dialog');
 }
 
@@ -36,7 +39,9 @@ async function addRelative(page: Page, button: RegExp, name: string) {
   await page.getByRole('dialog').getByRole('button', { name: button }).click();
   const card = page.getByRole('dialog');
   await expect(card.getByText(/unnamed person/i)).toBeVisible();
-  await card.getByLabel(/given name/i).fill(name);
+  const input = card.getByLabel(/given name/i);
+  await input.click(); // ensure focus is on the field, not the search box
+  await input.fill(name);
   await expect(card.getByRole('heading', { name: new RegExp(name) })).toBeVisible();
   return card;
 }

@@ -67,7 +67,9 @@ export function createFamilyChart(
     if (typeof d.data.id === 'string') callbacks.onSelect(d.data.id);
   });
 
-  f3Chart.updateTree({ initial: true });
+  // Fit the whole family in view on first render (rather than centering on one
+  // person, which can leave the tree off-screen).
+  f3Chart.updateTree({ initial: true, tree_position: 'fit' });
 
   return {
     update(next: RenderDatum[], mainId?: string) {
