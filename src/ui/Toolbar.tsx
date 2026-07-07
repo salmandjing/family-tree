@@ -3,6 +3,7 @@
 
 import { useRef, useState } from 'react';
 import { useTree, useTreeService } from '../app/TreeContext';
+import { useBusy } from '../app/BusyContext';
 import { addPerson } from '../core/operations';
 import { deletedPersons } from '../core/operations';
 import { SearchBox } from './SearchBox';
@@ -16,6 +17,7 @@ interface ToolbarProps {
 export function Toolbar({ onPick, onOpenHistory, onOpenBin }: ToolbarProps) {
   const service = useTreeService();
   const tree = useTree();
+  const { run } = useBusy();
   const importInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,15 +58,13 @@ export function Toolbar({ onPick, onOpenHistory, onOpenBin }: ToolbarProps) {
 
   async function doImport(file: File | undefined) {
     if (!file) return;
-    setBusy(true);
     setError(null);
     try {
       const text = await file.text();
-      await service.importJson(text);
+      await run(() => service.importJson(text));
     } catch (e) {
       setError(`Import failed: ${(e as Error).message}`);
     } finally {
-      setBusy(false);
       if (importInputRef.current) importInputRef.current.value = '';
     }
   }

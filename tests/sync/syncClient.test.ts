@@ -174,6 +174,23 @@ describe('resolveConflict', () => {
   });
 });
 
+describe('no-op backup guard', () => {
+  it('skips a second backup when the revision has not changed', async () => {
+    await service.apply((t, c) => addPerson(t, { given: 'A' }, c).tree);
+    const api = new FakeApi();
+    const client = makeClient(api);
+    await client.backupNow();
+    expect(api.backupCalls).toBe(1);
+    // No new edits → second backupNow should be a no-op.
+    await client.backupNow();
+    expect(api.backupCalls).toBe(1);
+    // A new edit → backup happens again.
+    await service.apply((t, c) => addPerson(t, { given: 'B' }, c).tree);
+    await client.backupNow();
+    expect(api.backupCalls).toBe(2);
+  });
+});
+
 describe('status on network failure', () => {
   it('marks offline on a network error', async () => {
     const api: WorkerApi = {

@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { TreeProvider, useTree } from './app/TreeContext';
+import { BusyProvider } from './app/BusyContext';
 import { useSync } from './app/useSync';
 import { backupEnabled, getStoredPassphrase } from './app/config';
 import { hasRenderableData } from './render/adapter';
@@ -95,7 +96,9 @@ export function App() {
 
   return (
     <TreeProvider>
-      <Workspace />
+      <BusyProvider>
+        <Workspace />
+      </BusyProvider>
     </TreeProvider>
   );
 }

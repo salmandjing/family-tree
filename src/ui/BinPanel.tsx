@@ -1,7 +1,7 @@
 /** Recently deleted bin (spec §4.3): restore or permanently remove. */
 
-import { useState } from 'react';
 import { useTree, useTreeService } from '../app/TreeContext';
+import { useBusy } from '../app/BusyContext';
 import { deletedPersons } from '../core/operations';
 import { BIN_RETENTION_DAYS } from '../store/schema';
 import { displayName } from './format';
@@ -10,26 +10,16 @@ import { PhotoThumb } from './PhotoThumb';
 export function BinPanel({ onClose }: { onClose: () => void }) {
   const service = useTreeService();
   const tree = useTree();
-  const [busy, setBusy] = useState(false);
+  const { run, busy } = useBusy();
   const people = deletedPersons(tree);
 
   async function restore(id: string) {
-    setBusy(true);
-    try {
-      await service.restoreDeletedPerson(id);
-    } finally {
-      setBusy(false);
-    }
+    await run(() => service.restoreDeletedPerson(id));
   }
 
   async function purge(id: string, name: string) {
     if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
-    setBusy(true);
-    try {
-      await service.purgePersonNow(id);
-    } finally {
-      setBusy(false);
-    }
+    await run(() => service.purgePersonNow(id));
   }
 
   return (

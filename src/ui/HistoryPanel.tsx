@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useTree, useTreeService } from '../app/TreeContext';
+import { useBusy } from '../app/BusyContext';
 import type { Snapshot } from '../store/schema';
 import { timeAgo } from '../sync/status';
 
 export function HistoryPanel({ onClose }: { onClose: () => void }) {
   const service = useTreeService();
   const tree = useTree();
+  const { run, busy } = useBusy();
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     service.listSnapshots().then(setSnapshots);
@@ -19,13 +20,8 @@ export function HistoryPanel({ onClose }: { onClose: () => void }) {
     if (!confirm('Restore your tree to this earlier version? Your current version stays in history.')) {
       return;
     }
-    setBusy(true);
-    try {
-      await service.restoreSnapshot(revision);
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+    await run(() => service.restoreSnapshot(revision));
+    onClose();
   }
 
   return (

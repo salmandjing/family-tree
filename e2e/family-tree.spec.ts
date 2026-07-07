@@ -153,6 +153,20 @@ test('"Whole tree" button closes the card and returns to the overview', async ({
   await expect(page.locator('.tree-canvas .card-inner')).toHaveCount(2); // tree still there
 });
 
+test('delete-forever removes a person and the app stays responsive', async ({ page }) => {
+  page.on('dialog', (d) => d.accept());
+  const card = await addFirstPerson(page);
+  await card.getByLabel(/given name/i).fill('Gone');
+  await card.getByRole('button', { name: /move to recently deleted/i }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0); // card closed
+  await page.getByRole('button', { name: /^Recently deleted/ }).click();
+  const bin = page.getByRole('dialog', { name: /recently deleted/i });
+  await bin.getByRole('button', { name: /delete forever/i }).click();
+  // Person is gone and the app is still responsive (no freeze).
+  await expect(bin.getByText('Gone')).toHaveCount(0);
+  expect(await page.evaluate(() => 1 + 1)).toBe(2);
+});
+
 test('data persists across reload (IndexedDB)', async ({ page }) => {
   const card = await addFirstPerson(page);
   await card.getByLabel(/given name/i).pressSequentially('Persist', { delay: 10 });

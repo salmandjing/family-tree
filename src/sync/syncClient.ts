@@ -39,6 +39,8 @@ export interface SyncClientOptions {
 export class SyncClient {
   private status: SyncStatus = initialStatus();
   private pendingConflict: PendingConflict | null = null;
+  /** Last revision confirmed on Drive; used to skip redundant backups. */
+  private lastBackedUpRevision: number | null = null;
   private readonly service: TreeService;
   private readonly store: LocalStore;
   private readonly api: WorkerApi;
@@ -102,6 +104,7 @@ export class SyncClient {
 
       switch (decision.action) {
         case 'in-sync':
+          this.lastBackedUpRevision = local.revision;
           this.setStatus({
             state: 'idle',
             lastBackupAt: driveMeta?.savedAt ?? this.status.lastBackupAt,
@@ -137,13 +140,19 @@ export class SyncClient {
     return 'error';
   }
 
-  /** Push the current local tree to Drive. */
+  /** Push the current local tree to Drive. Skips if nothing changed since the
+   *  last successful backup (avoids duplicate timestamped copies on Drive). */
   async backupNow(): Promise<void> {
+    const meta = this.metaOf();
+    if (this.lastBackedUpRevision === meta.revision) {
+      this.setStatus({ state: 'idle' }); // already backed up; no-op
+      return;
+    }
     this.setStatus({ state: 'backing-up' });
     try {
       const content = await this.service.exportJson(false);
-      const meta = this.metaOf();
       const result = await this.api.backup(content, meta);
+      this.lastBackedUpRevision = meta.revision;
       await this.writeMarker({
         syncedLocalRevision: meta.revision,
         syncedDriveRevision: result.revision,
@@ -168,6 +177,7 @@ export class SyncClient {
       return;
     }
     const imported = await this.service.importJson(resp.content);
+    this.lastBackedUpRevision = imported.revision; // local now matches Drive
     await this.writeMarker({
       syncedLocalRevision: imported.revision,
       syncedDriveRevision: resp.meta.revision,
