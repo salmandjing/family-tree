@@ -5,7 +5,12 @@
 
 import { useEffect, useRef } from 'react';
 import { useTree, useTreeService } from '../app/TreeContext';
-import { toRenderData, hasRenderableData, type RenderDatum } from '../render/adapter';
+import {
+  toRenderData,
+  hasRenderableData,
+  pickRoot,
+  type RenderDatum,
+} from '../render/adapter';
 import {
   createFamilyChart,
   type ChartHandle,
@@ -62,9 +67,11 @@ export function TreeCanvas({ onSelect, focusId, fitNonce }: TreeCanvasProps) {
     if (chartRef.current && focusId) chartRef.current.focus(focusId);
   }, [focusId]);
 
-  // Fit the whole tree when requested (the "Whole tree" button).
+  // Show the whole tree when requested: re-root on a top ancestor (so every
+  // branch is drawn, not just the currently-focused person's) and fit to view.
   useEffect(() => {
-    if (chartRef.current && fitNonce) chartRef.current.fit();
+    if (chartRef.current && fitNonce) chartRef.current.fit(pickRoot(tree));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitNonce]);
 
   // Tear down on unmount.

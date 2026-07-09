@@ -107,3 +107,38 @@ export function toRenderData(
 export function hasRenderableData(tree: FamilyTree): boolean {
   return activePersons(tree).length > 0;
 }
+
+/** Number of descendants of a person (cycle-guarded). */
+function descendantCount(
+  tree: FamilyTree,
+  id: string,
+  seen: Set<string> = new Set(),
+): number {
+  if (seen.has(id)) return 0;
+  seen.add(id);
+  let n = 0;
+  for (const c of childIds(tree, id)) n += 1 + descendantCount(tree, c, seen);
+  return n;
+}
+
+/**
+ * Best "main" person for a whole-tree view: a top ancestor (no parents) whose
+ * subtree covers the most people, so family-chart renders every branch. Falls
+ * back to the person with the most descendants if there is no clear root.
+ */
+export function pickRoot(tree: FamilyTree): string | undefined {
+  const active = activePersons(tree);
+  if (active.length === 0) return undefined;
+  const roots = active.filter((p) => parentIds(tree, p.id).length === 0);
+  const candidates = roots.length > 0 ? roots : active;
+  let best = candidates[0];
+  let bestCount = -1;
+  for (const p of candidates) {
+    const count = descendantCount(tree, p.id);
+    if (count > bestCount) {
+      bestCount = count;
+      best = p;
+    }
+  }
+  return best.id;
+}

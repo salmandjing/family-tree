@@ -11,8 +11,8 @@ import type { RenderDatum } from './adapter';
 export interface ChartHandle {
   update(data: RenderDatum[], mainId?: string): void;
   focus(id: string): void;
-  /** Zoom/pan to show the whole tree in the viewport. */
-  fit(): void;
+  /** Re-root on `mainId` (if given) and zoom/pan to show the whole tree. */
+  fit(mainId?: string): void;
   destroy(): void;
 }
 
@@ -81,7 +81,9 @@ export function createFamilyChart(
       f3Chart.updateMainId(id);
       f3Chart.updateTree({ tree_position: 'main_to_middle' });
     },
-    fit() {
+    fit(mainId?: string) {
+      // Re-root on a top ancestor so every branch is drawn, then fit to view.
+      if (mainId) f3Chart.updateMainId(mainId);
       f3Chart.updateTree({ tree_position: 'fit' });
     },
     destroy() {

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createEmptyTree } from '@/core/factories';
 import { addPerson, softDeletePerson } from '@/core/operations';
 import { addChild, addSpouse } from '@/core/relationships';
-import { toRenderData, hasRenderableData } from '@/render/adapter';
+import { toRenderData, hasRenderableData, pickRoot } from '@/render/adapter';
 
 function familyOfThree() {
   const dad = addPerson(createEmptyTree('d'), { given: 'Dad', sex: 'M' });
@@ -104,6 +104,29 @@ describe('toRenderData', () => {
     const datum = toRenderData(a.tree)[0];
     expect(datum.data.avatar).toBe('');
     expect(datum.data._hasPhoto).toBe(false);
+  });
+});
+
+describe('pickRoot', () => {
+  it('returns undefined for an empty tree', () => {
+    expect(pickRoot(createEmptyTree('d'))).toBeUndefined();
+  });
+
+  it('picks a top ancestor (no parents), never a descendant', () => {
+    const { tree, dad, mom, kid } = familyOfThree();
+    const root = pickRoot(tree);
+    expect(root).not.toBe(kid); // the child is never the root
+    expect([dad, mom]).toContain(root); // a parent is
+  });
+
+  it('prefers the root whose subtree covers the most people', () => {
+    // Grandparent → parent → child chain vs a lone extra root.
+    const gp = addPerson(createEmptyTree('d'), { given: 'GP' });
+    const withParent = addChild(gp.tree, gp.person.id, { given: 'P' });
+    const withKid = addChild(withParent.tree, withParent.person.id, { given: 'K' });
+    const lone = addPerson(withKid.tree, { given: 'Lone' });
+    // GP has 2 descendants; Lone has 0 → GP wins.
+    expect(pickRoot(lone.tree)).toBe(gp.person.id);
   });
 });
 

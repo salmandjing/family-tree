@@ -142,15 +142,28 @@ test('delete to bin then restore', async ({ page }) => {
   await expect(page.locator('.tree-canvas').getByText('Temp', { exact: false }).first()).toBeVisible();
 });
 
-test('"Whole tree" button closes the card and returns to the overview', async ({ page }) => {
+test('"Whole tree" reveals all branches after focusing a deep leaf', async ({ page }) => {
+  // Two-branch tree: Root → BranchA → LeafA and Root → BranchB → LeafB (5 people).
   const card = await addFirstPerson(page);
   await card.getByLabel(/Prénom/i).fill('Root');
-  await addRelative(page, /\+ Enfant/i, 'Branch');
-  // A person card is open; the whole-tree button should be present and close it.
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await addRelative(page, /\+ Enfant/i, 'BranchA');
+  await focusPerson(page, 'Root');
+  await addRelative(page, /\+ Enfant/i, 'BranchB');
+  await focusPerson(page, 'BranchA');
+  await addRelative(page, /\+ Enfant/i, 'LeafA');
+  await focusPerson(page, 'BranchB');
+  await addRelative(page, /\+ Enfant/i, 'LeafB');
+
+  // Focus a deep leaf — family-chart re-roots on it and hides the other branch.
+  await focusPerson(page, 'LeafA');
+  const focusedCount = await page.locator('.tree-canvas .card-inner').count();
+  console.log(`cards visible while focused on a leaf: ${focusedCount} (of 5)`);
+
   await page.getByRole('button', { name: /Voir tout/i }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0); // card closed
-  await expect(page.locator('.tree-canvas .card-inner')).toHaveCount(2); // tree still there
+  await page.waitForTimeout(700);
+  // Whole tree must render every one of the 5 people (all branches revealed).
+  await expect(page.locator('.tree-canvas .card-inner')).toHaveCount(5);
 });
 
 test('delete-forever removes a person and the app stays responsive', async ({ page }) => {
