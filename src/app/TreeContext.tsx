@@ -16,6 +16,7 @@ import {
 import { LocalStore } from '../store/localStore';
 import { TreeService } from './treeService';
 import type { FamilyTree } from '../core/types';
+import { t } from '../i18n';
 
 interface TreeContextValue {
   service: TreeService;
@@ -41,9 +42,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
         setCtx({ service: created, store });
       } catch (e) {
         console.error('Failed to initialize local storage', e);
-        setError(
-          'Could not open local storage. Your browser may be in private mode or out of space.',
-        );
+        setError(t.fatalStorage);
       }
     })();
     return () => {
@@ -54,7 +53,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   if (error) {
     return (
       <div className="fatal-error" role="alert">
-        <h1>Something went wrong</h1>
+        <h1>{t.fatalTitle}</h1>
         <p>{error}</p>
       </div>
     );
@@ -63,7 +62,7 @@ export function TreeProvider({ children }: { children: ReactNode }) {
   if (!ctx) {
     return (
       <div className="loading" role="status">
-        Loading your family tree…
+        {t.loading}
       </div>
     );
   }

@@ -35,6 +35,7 @@ import {
   type Compressor,
   browserCompressor,
 } from './photoService';
+import { t } from '../i18n';
 
 const MAX_HISTORY = 50;
 
@@ -173,7 +174,7 @@ export class TreeService {
   /** Restore a snapshot's content as a new higher revision (spec §4.2). */
   async restoreSnapshot(revision: number): Promise<void> {
     const snap = await this.store.getSnapshot(revision);
-    if (!snap) throw new Error('That snapshot no longer exists.');
+    if (!snap) throw new Error(t.history.missing);
     this.undoStack.push(this.tree);
     if (this.undoStack.length > MAX_HISTORY) this.undoStack.shift();
     this.redoStack = [];

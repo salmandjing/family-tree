@@ -13,11 +13,13 @@ import { PersonCard } from './ui/PersonCard';
 import { EmptyState } from './ui/EmptyState';
 import { HistoryPanel } from './ui/HistoryPanel';
 import { BinPanel } from './ui/BinPanel';
+import { HelpPanel } from './ui/HelpPanel';
 import { StatusBar } from './ui/StatusBar';
 import { PassphraseGate } from './ui/PassphraseGate';
 import { ConflictDialog } from './ui/ConflictDialog';
+import { t } from './i18n';
 
-type Panel = 'none' | 'history' | 'bin';
+type Panel = 'none' | 'history' | 'bin' | 'help';
 
 function Workspace() {
   const tree = useTree();
@@ -45,6 +47,7 @@ function Workspace() {
         onPick={select}
         onOpenHistory={() => setPanel('history')}
         onOpenBin={() => setPanel('bin')}
+        onOpenHelp={() => setPanel('help')}
       />
 
       <main className="workspace">
@@ -54,9 +57,9 @@ function Workspace() {
             <button
               className="whole-tree-btn"
               onClick={showWholeTree}
-              aria-label="Show the whole tree"
+              aria-label={t.wholeTreeAria}
             >
-              ⤢ Whole tree
+              {t.wholeTree}
             </button>
           </>
         ) : (
@@ -74,6 +77,7 @@ function Workspace() {
 
       {panel === 'history' && <HistoryPanel onClose={() => setPanel('none')} />}
       {panel === 'bin' && <BinPanel onClose={() => setPanel('none')} />}
+      {panel === 'help' && <HelpPanel onClose={() => setPanel('none')} />}
 
       {conflict && (
         <ConflictDialog conflict={conflict} onResolve={resolveConflict} />

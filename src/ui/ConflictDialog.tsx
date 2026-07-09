@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import type { PendingConflict, ConflictChoice } from '../sync/syncClient';
 import { timeAgo } from '../sync/status';
+import { t } from '../i18n';
 
 interface ConflictDialogProps {
   conflict: PendingConflict;
@@ -25,28 +26,22 @@ export function ConflictDialog({ conflict, onResolve }: ConflictDialogProps) {
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Version conflict">
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={t.conflict.aria}>
       <div className="modal conflict">
-        <h2>This tree was edited on another device</h2>
-        <p>
-          The other version was saved {timeAgo(conflict.remoteSavedAt)}. Which one would
-          you like to keep?
-        </p>
+        <h2>{t.conflict.title}</h2>
+        <p>{t.conflict.body(timeAgo(conflict.remoteSavedAt))}</p>
         <div className="conflict-choices">
           <button className="big-btn" disabled={busy} onClick={() => choose('local')}>
-            Keep this device's version
+            {t.conflict.keepLocal}
           </button>
           <button className="big-btn" disabled={busy} onClick={() => choose('remote')}>
-            Keep the other version
+            {t.conflict.keepRemote}
           </button>
           <button className="big-btn" disabled={busy} onClick={() => choose('both')}>
-            Keep both copies
+            {t.conflict.keepBoth}
           </button>
         </div>
-        <p className="hint">
-          “Keep both” keeps this device's version active and downloads the other version
-          as a file so nothing is lost.
-        </p>
+        <p className="hint">{t.conflict.hint}</p>
       </div>
     </div>
   );

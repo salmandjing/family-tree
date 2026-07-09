@@ -6,6 +6,7 @@ import { deletedPersons } from '../core/operations';
 import { BIN_RETENTION_DAYS } from '../store/schema';
 import { displayName } from './format';
 import { PhotoThumb } from './PhotoThumb';
+import { t } from '../i18n';
 
 export function BinPanel({ onClose }: { onClose: () => void }) {
   const service = useTreeService();
@@ -18,21 +19,19 @@ export function BinPanel({ onClose }: { onClose: () => void }) {
   }
 
   async function purge(id: string, name: string) {
-    if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+    if (!confirm(t.bin.confirm(name))) return;
     await run(() => service.purgePersonNow(id));
   }
 
   return (
-    <aside className="panel bin-panel" role="dialog" aria-label="Recently deleted">
+    <aside className="panel bin-panel" role="dialog" aria-label={t.bin.title}>
       <div className="panel-header">
-        <h2>Recently deleted</h2>
-        <button className="icon-btn" onClick={onClose} aria-label="Close">
+        <h2>{t.bin.title}</h2>
+        <button className="icon-btn" onClick={onClose} aria-label={t.person.close}>
           ✕
         </button>
       </div>
-      <p className="hint">
-        Deleted people are kept for {BIN_RETENTION_DAYS} days, then removed automatically.
-      </p>
+      <p className="hint">{t.bin.hint(BIN_RETENTION_DAYS)}</p>
       <ul>
         {people.map((p) => (
           <li key={p.id}>
@@ -42,19 +41,19 @@ export function BinPanel({ onClose }: { onClose: () => void }) {
             </span>
             <span className="row-actions">
               <button disabled={busy} onClick={() => restore(p.id)}>
-                Restore
+                {t.bin.restore}
               </button>
               <button
                 className="danger"
                 disabled={busy}
                 onClick={() => purge(p.id, displayName(p))}
               >
-                Delete forever
+                {t.bin.deleteForever}
               </button>
             </span>
           </li>
         ))}
-        {people.length === 0 && <li className="empty">Nothing here.</li>}
+        {people.length === 0 && <li className="empty">{t.bin.empty}</li>}
       </ul>
     </aside>
   );

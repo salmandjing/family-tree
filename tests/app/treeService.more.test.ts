@@ -31,7 +31,7 @@ describe('restoreSnapshot', () => {
   });
 
   it('throws for a missing snapshot revision', async () => {
-    await expect(service.restoreSnapshot(9999)).rejects.toThrow(/no longer exists/);
+    await expect(service.restoreSnapshot(9999)).rejects.toThrow(/n’existe plus/);
   });
 
   it('a restore can itself be undone', async () => {

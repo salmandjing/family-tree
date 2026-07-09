@@ -4,6 +4,8 @@
  * message for a non-technical user.
  */
 
+import { t } from '../i18n';
+
 export type SyncState =
   | 'local-only' // backup not configured / no passphrase yet
   | 'idle' // up to date with Drive
@@ -27,37 +29,37 @@ export function initialStatus(): SyncStatus {
     state: 'local-only',
     lastBackupAt: null,
     lastBackupRevision: null,
-    message: 'Saved on this device',
+    message: t.status.localOnly,
   };
 }
 
-/** Relative "x minutes ago" phrasing for the status line. */
+/** Relative "il y a x min" phrasing for the status line. */
 export function timeAgo(iso: string | null, now: Date = new Date()): string {
-  if (!iso) return 'never';
+  if (!iso) return t.time.never;
   const diffMs = now.getTime() - Date.parse(iso);
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1) return t.time.justNow;
+  if (mins < 60) return t.time.min(mins);
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hr ago`;
+  if (hours < 24) return t.time.hr(hours);
   const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
+  return t.time.day(days);
 }
 
 /** The user-facing line for a status, combining state + last backup time. */
 export function statusLine(status: SyncStatus, now: Date = new Date()): string {
   switch (status.state) {
     case 'local-only':
-      return 'Saved on this device';
+      return t.status.localOnly;
     case 'idle':
-      return `✓ Backed up ${timeAgo(status.lastBackupAt, now)}`;
+      return t.status.idle(timeAgo(status.lastBackupAt, now));
     case 'pending':
-      return 'Changes saved here — backing up shortly…';
+      return t.status.pending;
     case 'backing-up':
-      return 'Backing up…';
+      return t.status.backingUp;
     case 'offline':
-      return 'Offline — your changes are saved here and will back up when you reconnect';
+      return t.status.offline;
     case 'error':
-      return 'Backups stopped working — your changes are still saved on this device. Tell Salman.';
+      return t.status.error;
   }
 }

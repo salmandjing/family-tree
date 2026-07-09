@@ -30,14 +30,14 @@ describe('App smoke flow', () => {
 
     // Empty state appears after async init.
     const startBtn = await screen.findByRole('button', {
-      name: /add the first person/i,
+      name: /Ajouter la première personne/i,
     });
     await user.click(startBtn);
 
     // Person card opens for the new (unnamed) person.
     const card = await screen.findByRole('dialog');
     expect(card).toBeInTheDocument();
-    expect(within(card).getByText(/Unnamed person/i)).toBeInTheDocument();
+    expect(within(card).getByText(/Personne sans nom/i)).toBeInTheDocument();
   });
 
   it('edits a name and it appears in the card title', async () => {
@@ -45,10 +45,10 @@ describe('App smoke flow', () => {
     render(<App />);
 
     await user.click(
-      await screen.findByRole('button', { name: /add the first person/i }),
+      await screen.findByRole('button', { name: /Ajouter la première personne/i }),
     );
     const card = await screen.findByRole('dialog');
-    const given = within(card).getByLabelText(/Given name/i);
+    const given = within(card).getByLabelText(/Prénom/i);
     await user.type(given, 'Amina');
 
     await waitFor(() =>
@@ -61,17 +61,17 @@ describe('App smoke flow', () => {
     render(<App />);
 
     await user.click(
-      await screen.findByRole('button', { name: /add the first person/i }),
+      await screen.findByRole('button', { name: /Ajouter la première personne/i }),
     );
     let card = await screen.findByRole('dialog');
-    await user.type(within(card).getByLabelText(/Given name/i), 'Dad');
+    await user.type(within(card).getByLabelText(/Prénom/i), 'Dad');
 
-    await user.click(within(card).getByRole('button', { name: /\+ Spouse/i }));
+    await user.click(within(card).getByRole('button', { name: /\+ Conjoint/i }));
 
     // Card switches to the new spouse (unnamed); name Dad no longer the title.
     card = await screen.findByRole('dialog');
     await waitFor(() =>
-      expect(within(card).getByText(/Unnamed person/i)).toBeInTheDocument(),
+      expect(within(card).getByText(/Personne sans nom/i)).toBeInTheDocument(),
     );
   });
 });

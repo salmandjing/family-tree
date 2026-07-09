@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTreeService } from '../app/TreeContext';
 import { addPerson } from '../core/operations';
+import { t } from '../i18n';
 
 export function EmptyState({ onCreated }: { onCreated: (id: string) => void }) {
   const service = useTreeService();
@@ -29,10 +30,10 @@ export function EmptyState({ onCreated }: { onCreated: (id: string) => void }) {
         <div className="tree-emoji" aria-hidden>
           🌳
         </div>
-        <h2>Start your family tree</h2>
-        <p>Add the first person — usually yourself or the oldest relative you know.</p>
+        <h2>{t.empty.heading}</h2>
+        <p>{t.empty.desc}</p>
         <button className="big-btn primary" disabled={busy} onClick={start}>
-          Add the first person
+          {t.empty.button}
         </button>
       </div>
     </div>

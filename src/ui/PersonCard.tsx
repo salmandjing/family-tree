@@ -24,6 +24,7 @@ import {
 import type { Person, Sex } from '../core/types';
 import { displayName, lifeSpan } from './format';
 import { PhotoThumb } from './PhotoThumb';
+import { t } from '../i18n';
 
 interface PersonCardProps {
   personId: string;
@@ -32,9 +33,9 @@ interface PersonCardProps {
 }
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
-  { value: 'M', label: 'Male' },
-  { value: 'F', label: 'Female' },
-  { value: 'unknown', label: 'Unknown' },
+  { value: 'M', label: t.person.sexMale },
+  { value: 'F', label: t.person.sexFemale },
+  { value: 'unknown', label: t.person.sexUnknown },
 ];
 
 interface Draft {
@@ -117,9 +118,9 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
 
   if (!person || !draft) {
     return (
-      <aside className="person-card" role="dialog" aria-label="Person details">
-        <p>This person no longer exists.</p>
-        <button onClick={onClose}>Close</button>
+      <aside className="person-card" role="dialog" aria-label={t.person.gone}>
+        <p>{t.person.gone}</p>
+        <button onClick={onClose}>{t.person.close}</button>
       </aside>
     );
   }
@@ -130,7 +131,7 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
     try {
       await action();
     } catch (e) {
-      setError((e as Error).message || 'Something went wrong.');
+      setError((e as Error).message || t.person.somethingWrong);
     } finally {
       setBusy(false);
     }
@@ -203,14 +204,14 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
     });
 
   return (
-    <aside className="person-card" role="dialog" aria-label={`Details for ${displayName(person)}`}>
+    <aside className="person-card" role="dialog" aria-label={t.person.detailsFor(displayName(person))}>
       <div className="person-card-header">
         <PhotoThumb photoId={person.photos[0]} alt={displayName(person)} className="large" />
         <div className="person-card-title">
           <h2>{displayName(person)}</h2>
           {lifeSpan(person) && <p className="lifespan">{lifeSpan(person)}</p>}
         </div>
-        <button className="icon-btn close" onClick={onClose} aria-label="Close">
+        <button className="icon-btn close" onClick={onClose} aria-label={t.person.close}>
           ✕
         </button>
       </div>
@@ -223,20 +224,20 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
 
       <div className="big-buttons">
         <button className="big-btn" disabled={busy} onClick={handleAddParent}>
-          + Parent
+          {t.person.addParent}
         </button>
         <button className="big-btn" disabled={busy} onClick={handleAddSpouse}>
-          + Spouse
+          {t.person.addSpouse}
         </button>
         <button className="big-btn" disabled={busy} onClick={onAddChildClick}>
-          + Child
+          {t.person.addChild}
         </button>
         <button
           className="big-btn"
           disabled={busy}
           onClick={() => fileInputRef.current?.click()}
         >
-          + Photo
+          {t.person.addPhoto}
         </button>
         <input
           ref={fileInputRef}
@@ -249,40 +250,40 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
 
       {childPickerOpen && (
         <div className="child-picker">
-          <p>Add a child with which partner?</p>
+          <p>{t.person.whichPartner}</p>
           {unionsAsPartner(tree, personId).map((u) => {
             const other = u.partners.find((p) => p !== personId);
             const otherPerson = other ? getPerson(tree, other) : undefined;
             return (
               <button key={u.id} disabled={busy} onClick={() => handleAddChild(u.id)}>
-                {otherPerson ? displayName(otherPerson) : 'Unknown partner'}
+                {otherPerson ? displayName(otherPerson) : t.person.unknownPartner}
               </button>
             );
           })}
           <button className="secondary" onClick={() => setChildPickerOpen(false)}>
-            Cancel
+            {t.person.cancel}
           </button>
         </div>
       )}
 
       <form className="person-form" onSubmit={(e) => e.preventDefault()}>
         <label>
-          Given name
+          {t.person.givenName}
           <input value={draft.given} onChange={(e) => edit({ given: e.target.value })} />
         </label>
         <label>
-          Family name
+          {t.person.familyName}
           <input value={draft.family} onChange={(e) => edit({ family: e.target.value })} />
         </label>
         <label>
-          Nicknames (comma-separated)
+          {t.person.nicknames}
           <input
             value={draft.nicknames}
             onChange={(e) => edit({ nicknames: e.target.value })}
           />
         </label>
         <label>
-          Sex
+          {t.person.sex}
           <select value={draft.sex} onChange={(e) => edit({ sex: e.target.value as Sex })}>
             {SEX_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -293,9 +294,9 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
         </label>
 
         <fieldset>
-          <legend>Born</legend>
+          <legend>{t.person.bornLegend}</legend>
           <input
-            placeholder="e.g. 1950 or around 1950"
+            placeholder={t.person.dateHint}
             value={draft.birthDate}
             onChange={(e) => edit({ birthDate: e.target.value })}
           />
@@ -305,29 +306,29 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
               checked={draft.birthApprox}
               onChange={(e) => edit({ birthApprox: e.target.checked })}
             />
-            Approximate
+            {t.person.approximate}
           </label>
           <input
-            placeholder="Place"
+            placeholder={t.person.place}
             value={draft.birthPlace}
             onChange={(e) => edit({ birthPlace: e.target.value })}
           />
         </fieldset>
 
         <fieldset>
-          <legend>Died</legend>
+          <legend>{t.person.diedLegend}</legend>
           <label className="inline">
             <input
               type="checkbox"
               checked={draft.deceased}
               onChange={(e) => edit({ deceased: e.target.checked })}
             />
-            Deceased
+            {t.person.deceased}
           </label>
           {draft.deceased && (
             <>
               <input
-                placeholder="e.g. 2001 or around 2001"
+                placeholder={t.person.deathHint}
                 value={draft.deathDate}
                 onChange={(e) => edit({ deathDate: e.target.value })}
               />
@@ -337,10 +338,10 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
                   checked={draft.deathApprox}
                   onChange={(e) => edit({ deathApprox: e.target.checked })}
                 />
-                Approximate
+                {t.person.approximate}
               </label>
               <input
-                placeholder="Place"
+                placeholder={t.person.place}
                 value={draft.deathPlace}
                 onChange={(e) => edit({ deathPlace: e.target.value })}
               />
@@ -349,22 +350,22 @@ export function PersonCard({ personId, onSelect, onClose }: PersonCardProps) {
         </fieldset>
 
         <label className="notes">
-          Stories & notes
+          {t.person.notes}
           <textarea
             rows={5}
-            placeholder="Anything worth remembering — stories, places, relationships…"
+            placeholder={t.person.notesHint}
             value={draft.notes}
             onChange={(e) => edit({ notes: e.target.value })}
           />
         </label>
       </form>
 
-      <RelativesSection title="Parents" ids={relatives.parents} tree={tree} onSelect={onSelect} />
-      <RelativesSection title="Spouses" ids={relatives.spouses} tree={tree} onSelect={onSelect} />
-      <RelativesSection title="Children" ids={relatives.children} tree={tree} onSelect={onSelect} />
+      <RelativesSection title={t.person.parents} ids={relatives.parents} tree={tree} onSelect={onSelect} />
+      <RelativesSection title={t.person.spouses} ids={relatives.spouses} tree={tree} onSelect={onSelect} />
+      <RelativesSection title={t.person.children} ids={relatives.children} tree={tree} onSelect={onSelect} />
 
       <button className="delete-btn" disabled={busy} onClick={handleDelete}>
-        Move to Recently deleted
+        {t.person.delete}
       </button>
     </aside>
   );

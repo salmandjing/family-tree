@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTree } from '../app/TreeContext';
 import { activePersons } from '../core/operations';
 import { displayName, lifeSpan } from './format';
+import { t } from '../i18n';
 
 interface SearchBoxProps {
   onPick: (id: string) => void;
@@ -35,9 +36,9 @@ export function SearchBox({ onPick }: SearchBoxProps) {
     <div className="search-box">
       <input
         type="search"
-        placeholder="Search a name…"
+        placeholder={t.search.placeholder}
         value={query}
-        aria-label="Search people"
+        aria-label={t.search.aria}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);

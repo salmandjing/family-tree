@@ -5,6 +5,7 @@ import { useTree, useTreeService } from '../app/TreeContext';
 import { useBusy } from '../app/BusyContext';
 import type { Snapshot } from '../store/schema';
 import { timeAgo } from '../sync/status';
+import { t } from '../i18n';
 
 export function HistoryPanel({ onClose }: { onClose: () => void }) {
   const service = useTreeService();
@@ -17,7 +18,7 @@ export function HistoryPanel({ onClose }: { onClose: () => void }) {
   }, [service, tree]);
 
   async function restore(revision: number) {
-    if (!confirm('Restore your tree to this earlier version? Your current version stays in history.')) {
+    if (!confirm(t.history.confirm)) {
       return;
     }
     await run(() => service.restoreSnapshot(revision));
@@ -25,28 +26,28 @@ export function HistoryPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <aside className="panel history-panel" role="dialog" aria-label="History">
+    <aside className="panel history-panel" role="dialog" aria-label={t.history.title}>
       <div className="panel-header">
-        <h2>History</h2>
-        <button className="icon-btn" onClick={onClose} aria-label="Close">
+        <h2>{t.history.title}</h2>
+        <button className="icon-btn" onClick={onClose} aria-label={t.person.close}>
           ✕
         </button>
       </div>
-      <p className="hint">Each save is kept here. Restore any earlier version.</p>
+      <p className="hint">{t.history.hint}</p>
       <ul>
         {snapshots.map((s) => (
           <li key={s.revision}>
             <div>
-              <strong>Version {s.revision}</strong>
+              <strong>{t.history.version(s.revision)}</strong>
               <span className="dates"> · {timeAgo(s.savedAt)}</span>
-              <span className="count"> · {s.tree.persons.filter((p) => !p.deletedAt).length} people</span>
+              <span className="count"> · {t.history.people(s.tree.persons.filter((p) => !p.deletedAt).length)}</span>
             </div>
             <button disabled={busy || s.revision === tree.revision} onClick={() => restore(s.revision)}>
-              {s.revision === tree.revision ? 'Current' : 'Restore'}
+              {s.revision === tree.revision ? t.history.current : t.history.restore}
             </button>
           </li>
         ))}
-        {snapshots.length === 0 && <li className="empty">No history yet.</li>}
+        {snapshots.length === 0 && <li className="empty">{t.history.empty}</li>}
       </ul>
     </aside>
   );

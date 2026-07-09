@@ -7,6 +7,7 @@
 import { useState, type FormEvent } from 'react';
 import { backupEnabled, setStoredPassphrase, workerUrl } from '../app/config';
 import { HttpWorkerApi } from '../sync/workerApi';
+import { t } from '../i18n';
 
 export function PassphraseGate({ onUnlock }: { onUnlock: () => void }) {
   const [value, setValue] = useState('');
@@ -17,7 +18,7 @@ export function PassphraseGate({ onUnlock }: { onUnlock: () => void }) {
     e.preventDefault();
     const pass = value.trim();
     if (!pass) {
-      setError('Please enter the family password.');
+      setError(t.gate.empty);
       return;
     }
     setBusy(true);
@@ -33,11 +34,7 @@ export function PassphraseGate({ onUnlock }: { onUnlock: () => void }) {
       onUnlock();
     } catch (err) {
       const msg = (err as Error).message;
-      setError(
-        /passphrase/i.test(msg)
-          ? 'That password is not correct.'
-          : `Could not reach the backup service. You can still work offline. (${msg})`,
-      );
+      setError(/passphrase/i.test(msg) ? t.gate.wrong : t.gate.network(msg));
       // If it was only a network problem, allow local-only entry.
       if (!/passphrase/i.test(msg)) {
         setStoredPassphrase(value.trim());
@@ -53,15 +50,15 @@ export function PassphraseGate({ onUnlock }: { onUnlock: () => void }) {
         <div className="tree-emoji" aria-hidden>
           🌳
         </div>
-        <h1>Family Tree</h1>
-        <p>Enter the family password to continue.</p>
+        <h1>{t.appName}</h1>
+        <p>{t.gate.prompt}</p>
         <input
           type="password"
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Family password"
-          aria-label="Family password"
+          placeholder={t.gate.placeholder}
+          aria-label={t.gate.placeholder}
         />
         {error && (
           <p className="error-banner" role="alert">
@@ -69,7 +66,7 @@ export function PassphraseGate({ onUnlock }: { onUnlock: () => void }) {
           </p>
         )}
         <button className="big-btn primary" disabled={busy} type="submit">
-          {busy ? 'Checking…' : 'Unlock'}
+          {busy ? t.gate.checking : t.gate.unlock}
         </button>
       </form>
     </div>

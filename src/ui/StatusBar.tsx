@@ -1,6 +1,7 @@
 /** Persistent backup status indicator (spec §8). Colour + plain words. */
 
 import { statusLine, type SyncStatus } from '../sync/status';
+import { t } from '../i18n';
 
 interface StatusBarProps {
   status: SyncStatus;
@@ -22,7 +23,7 @@ export function StatusBar({ status, onRetry }: StatusBarProps) {
       <span className="status-text">{statusLine(status)}</span>
       {status.state === 'error' && onRetry && (
         <button className="retry" onClick={onRetry}>
-          Try again
+          {t.status.retry}
         </button>
       )}
     </footer>

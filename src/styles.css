@@ -371,6 +371,54 @@ button.primary {
   font-size: 24px;
 }
 
+/* ── Help button + panel ────────────────────────────────────────────────── */
+.help-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green-dark);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.help-btn:hover:not(:disabled) {
+  background: var(--green-dark);
+}
+.help-panel .help-steps {
+  margin: 0.5rem 0 0;
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.help-panel .help-steps li {
+  display: list-item;
+  border: none;
+  padding: 0;
+  line-height: 1.5;
+}
+.help-panel .help-safe {
+  margin-top: 1.2rem;
+  background: #eef2ea;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  border-left: 4px solid var(--green);
+}
+.help-panel .help-safe h3 {
+  margin: 0 0 0.4rem;
+  color: var(--green-dark);
+}
+.help-panel .help-safe ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.help-panel .help-safe li {
+  display: list-item;
+  border: none;
+  padding: 0.15rem 0;
+}
+
 /* ── Panels (history, bin) ──────────────────────────────────────────────── */
 .panel {
   position: fixed;

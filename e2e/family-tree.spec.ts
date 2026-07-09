@@ -16,14 +16,14 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function addFirstPerson(page: Page) {
-  await page.getByRole('button', { name: /add the first person/i }).click();
+  await page.getByRole('button', { name: /Ajouter la première personne/i }).click();
   return page.getByRole('dialog');
 }
 
 // Reliable navigation via the always-on search box (avoids clicking transitioning
 // family-chart cards).
 async function focusPerson(page: Page, name: string) {
-  const search = page.getByPlaceholder(/search a name/i);
+  const search = page.getByPlaceholder(/Rechercher un nom/i);
   await search.fill(name);
   await page.getByRole('option', { name: new RegExp(name) }).first().click();
   // Wait until the card for THIS person is fully open before proceeding.
@@ -38,8 +38,8 @@ async function focusPerson(page: Page, name: string) {
 async function addRelative(page: Page, button: RegExp, name: string) {
   await page.getByRole('dialog').getByRole('button', { name: button }).click();
   const card = page.getByRole('dialog');
-  await expect(card.getByText(/unnamed person/i)).toBeVisible();
-  const input = card.getByLabel(/given name/i);
+  await expect(card.getByText(/Personne sans nom/i)).toBeVisible();
+  const input = card.getByLabel(/Prénom/i);
   await input.click(); // ensure focus is on the field, not the search box
   await input.fill(name);
   await expect(card.getByRole('heading', { name: new RegExp(name) })).toBeVisible();
@@ -47,18 +47,18 @@ async function addRelative(page: Page, button: RegExp, name: string) {
 }
 
 test('first run: empty state then add a person', async ({ page }) => {
-  await expect(page.getByText(/start your family tree/i)).toBeVisible();
+  await expect(page.getByText(/Commencez votre arbre/i)).toBeVisible();
   const card = await addFirstPerson(page);
   await expect(card).toBeVisible();
-  await expect(card.getByText(/unnamed person/i)).toBeVisible();
+  await expect(card.getByText(/Personne sans nom/i)).toBeVisible();
 });
 
 test('typing a name is lossless and updates the card + tree', async ({ page }) => {
   const card = await addFirstPerson(page);
-  const given = card.getByLabel(/given name/i);
+  const given = card.getByLabel(/Prénom/i);
   await given.fill(''); // ensure empty
   await given.pressSequentially('Amadou', { delay: 15 }); // simulate real typing
-  await expect(card.getByLabel(/given name/i)).toHaveValue('Amadou');
+  await expect(card.getByLabel(/Prénom/i)).toHaveValue('Amadou');
   await expect(card.getByRole('heading', { name: /Amadou/ })).toBeVisible();
   // Tree renders the name (family-chart in a real browser).
   await expect(page.locator('.tree-canvas')).toBeVisible();
@@ -66,34 +66,34 @@ test('typing a name is lossless and updates the card + tree', async ({ page }) =
 
 test('add spouse then child; tree renders all three', async ({ page }) => {
   const card = await addFirstPerson(page);
-  await card.getByLabel(/given name/i).fill('Dad');
+  await card.getByLabel(/Prénom/i).fill('Dad');
   await expect(card.getByRole('heading', { name: /Dad/ })).toBeVisible();
-  await addRelative(page, /\+ spouse/i, 'Mom');
-  await addRelative(page, /\+ child/i, 'Kid');
-  await page.getByRole('button', { name: /close/i }).click();
+  await addRelative(page, /\+ Conjoint/i, 'Mom');
+  await addRelative(page, /\+ Enfant/i, 'Kid');
+  await page.getByRole('button', { name: /Fermer/i }).click();
   await page.waitForTimeout(700); // family-chart enter transition
   // The tree rendered three person cards (family-chart fragments text across
   // main+mini nodes, so assert on card count, and verify names via search).
   await expect(page.locator('.tree-canvas .card-inner')).toHaveCount(3);
   for (const name of ['Dad', 'Mom', 'Kid']) {
-    await page.getByPlaceholder(/search a name/i).fill(name);
+    await page.getByPlaceholder(/Rechercher un nom/i).fill(name);
     await expect(page.getByRole('option', { name: new RegExp(name) })).toBeVisible();
-    await page.getByPlaceholder(/search a name/i).fill('');
+    await page.getByPlaceholder(/Rechercher un nom/i).fill('');
   }
 });
 
 test('polygamy: adding a child with two spouses asks which partner', async ({ page }) => {
   const card = await addFirstPerson(page);
-  await card.getByLabel(/given name/i).fill('Chief');
+  await card.getByLabel(/Prénom/i).fill('Chief');
   await expect(card.getByRole('heading', { name: /Chief/ })).toBeVisible();
-  await addRelative(page, /\+ spouse/i, 'WifeOne');
+  await addRelative(page, /\+ Conjoint/i, 'WifeOne');
   await focusPerson(page, 'Chief');
-  await addRelative(page, /\+ spouse/i, 'WifeTwo');
+  await addRelative(page, /\+ Conjoint/i, 'WifeTwo');
   await focusPerson(page, 'Chief');
   // Add a child to the chief → must prompt for which partner (polygamy)
-  await page.getByRole('dialog').getByRole('button', { name: /\+ child/i }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /\+ Enfant/i }).click();
   const picker = page.locator('.child-picker');
-  await expect(picker.getByText(/which partner/i)).toBeVisible();
+  await expect(picker.getByText(/quel conjoint/i)).toBeVisible();
   await expect(picker.getByRole('button', { name: /^WifeOne$/ })).toBeVisible();
   await expect(picker.getByRole('button', { name: /^WifeTwo$/ })).toBeVisible();
 });
@@ -106,7 +106,7 @@ test('XSS: a malicious name does NOT execute in the tree', async ({ page }) => {
   });
   const card = await addFirstPerson(page);
   const payload = '<img src=x onerror="window.__xss_fired=true;alert(1)">';
-  await card.getByLabel(/given name/i).fill(payload);
+  await card.getByLabel(/Prénom/i).fill(payload);
   await page.waitForTimeout(500); // let the tree re-render
   const fired = await page.evaluate(() => (window as unknown as { __xss_fired?: boolean }).__xss_fired);
   expect(fired).toBeFalsy();
@@ -118,37 +118,37 @@ test('XSS: a malicious name does NOT execute in the tree', async ({ page }) => {
 
 test('undo and redo an edit', async ({ page }) => {
   const card = await addFirstPerson(page);
-  await card.getByLabel(/given name/i).pressSequentially('First', { delay: 10 });
+  await card.getByLabel(/Prénom/i).pressSequentially('First', { delay: 10 });
   await expect(card.getByRole('heading', { name: /First/ })).toBeVisible();
-  await page.getByRole('button', { name: /↶ undo/i }).click();
+  await page.getByRole('button', { name: /Annuler/i }).click();
   // After undo the name reverts (heading no longer "First").
   await expect(page.getByRole('dialog').getByRole('heading', { name: /First/ })).toHaveCount(0);
-  await page.getByRole('button', { name: /↷ redo/i }).click();
+  await page.getByRole('button', { name: /Rétablir/i }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: /First/ })).toBeVisible();
 });
 
 test('delete to bin then restore', async ({ page }) => {
   const card = await addFirstPerson(page);
-  await card.getByLabel(/given name/i).pressSequentially('Temp', { delay: 10 });
-  await card.getByRole('button', { name: /move to recently deleted/i }).click();
+  await card.getByLabel(/Prénom/i).pressSequentially('Temp', { delay: 10 });
+  await card.getByRole('button', { name: /Mettre à la corbeille/i }).click();
   // Tree should now be empty (empty state returns).
-  await expect(page.getByText(/start your family tree/i)).toBeVisible();
+  await expect(page.getByText(/Commencez votre arbre/i)).toBeVisible();
   // Open the bin and restore.
-  await page.getByRole('button', { name: /recently deleted/i }).click();
-  const bin = page.getByRole('dialog', { name: /recently deleted/i });
+  await page.getByRole('button', { name: /Corbeille/i }).click();
+  const bin = page.getByRole('dialog', { name: /Corbeille/i });
   await expect(bin.getByText(/Temp/)).toBeVisible();
-  await bin.getByRole('button', { name: /^restore$/i }).click();
-  await bin.getByRole('button', { name: /close/i }).click();
+  await bin.getByRole('button', { name: /^Restaurer$/i }).click();
+  await bin.getByRole('button', { name: /Fermer/i }).click();
   await expect(page.locator('.tree-canvas').getByText('Temp', { exact: false }).first()).toBeVisible();
 });
 
 test('"Whole tree" button closes the card and returns to the overview', async ({ page }) => {
   const card = await addFirstPerson(page);
-  await card.getByLabel(/given name/i).fill('Root');
-  await addRelative(page, /\+ child/i, 'Branch');
+  await card.getByLabel(/Prénom/i).fill('Root');
+  await addRelative(page, /\+ Enfant/i, 'Branch');
   // A person card is open; the whole-tree button should be present and close it.
   await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('button', { name: /whole tree/i }).click();
+  await page.getByRole('button', { name: /Voir tout/i }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0); // card closed
   await expect(page.locator('.tree-canvas .card-inner')).toHaveCount(2); // tree still there
 });
@@ -156,12 +156,12 @@ test('"Whole tree" button closes the card and returns to the overview', async ({
 test('delete-forever removes a person and the app stays responsive', async ({ page }) => {
   page.on('dialog', (d) => d.accept());
   const card = await addFirstPerson(page);
-  await card.getByLabel(/given name/i).fill('Gone');
-  await card.getByRole('button', { name: /move to recently deleted/i }).click();
+  await card.getByLabel(/Prénom/i).fill('Gone');
+  await card.getByRole('button', { name: /Mettre à la corbeille/i }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0); // card closed
-  await page.getByRole('button', { name: /^Recently deleted/ }).click();
-  const bin = page.getByRole('dialog', { name: /recently deleted/i });
-  await bin.getByRole('button', { name: /delete forever/i }).click();
+  await page.getByRole('button', { name: /^Corbeille/ }).click();
+  const bin = page.getByRole('dialog', { name: /Corbeille/i });
+  await bin.getByRole('button', { name: /Supprimer définitivement/i }).click();
   // Person is gone and the app is still responsive (no freeze).
   await expect(bin.getByText('Gone')).toHaveCount(0);
   expect(await page.evaluate(() => 1 + 1)).toBe(2);
@@ -169,7 +169,7 @@ test('delete-forever removes a person and the app stays responsive', async ({ pa
 
 test('data persists across reload (IndexedDB)', async ({ page }) => {
   const card = await addFirstPerson(page);
-  await card.getByLabel(/given name/i).pressSequentially('Persist', { delay: 10 });
+  await card.getByLabel(/Prénom/i).pressSequentially('Persist', { delay: 10 });
   await expect(card.getByRole('heading', { name: /Persist/ })).toBeVisible();
   await page.waitForTimeout(300);
   await page.reload();

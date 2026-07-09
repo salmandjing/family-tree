@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { t } from '../i18n';
 
 interface BusyValue {
   /** Run an async operation while showing the global "Working…" overlay. */
@@ -39,7 +40,7 @@ export function BusyProvider({ children }: { children: ReactNode }) {
         <div className="busy-overlay" role="status" aria-live="polite">
           <div className="busy-card">
             <span className="busy-spinner" aria-hidden />
-            Working…
+            {t.working}
           </div>
         </div>
       )}

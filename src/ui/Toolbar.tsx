@@ -7,14 +7,16 @@ import { useBusy } from '../app/BusyContext';
 import { addPerson } from '../core/operations';
 import { deletedPersons } from '../core/operations';
 import { SearchBox } from './SearchBox';
+import { t } from '../i18n';
 
 interface ToolbarProps {
   onPick: (id: string) => void;
   onOpenHistory: () => void;
   onOpenBin: () => void;
+  onOpenHelp: () => void;
 }
 
-export function Toolbar({ onPick, onOpenHistory, onOpenBin }: ToolbarProps) {
+export function Toolbar({ onPick, onOpenHistory, onOpenBin, onOpenHelp }: ToolbarProps) {
   const service = useTreeService();
   const tree = useTree();
   const { run } = useBusy();
@@ -52,7 +54,7 @@ export function Toolbar({ onPick, onOpenHistory, onOpenBin }: ToolbarProps) {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError(`Export failed: ${(e as Error).message}`);
+      setError(t.toolbar.exportFailed((e as Error).message));
     }
   }
 
@@ -63,7 +65,7 @@ export function Toolbar({ onPick, onOpenHistory, onOpenBin }: ToolbarProps) {
       const text = await file.text();
       await run(() => service.importJson(text));
     } catch (e) {
-      setError(`Import failed: ${(e as Error).message}`);
+      setError(t.toolbar.importFailed((e as Error).message));
     } finally {
       if (importInputRef.current) importInputRef.current.value = '';
     }
@@ -72,26 +74,29 @@ export function Toolbar({ onPick, onOpenHistory, onOpenBin }: ToolbarProps) {
   return (
     <header className="toolbar">
       <div className="toolbar-row">
-        <h1 className="app-title">Family Tree</h1>
+        <h1 className="app-title">{t.appName}</h1>
         <SearchBox onPick={onPick} />
+        <button className="help-btn" onClick={onOpenHelp} aria-label={t.toolbar.help}>
+          ? {t.toolbar.help}
+        </button>
       </div>
       <div className="toolbar-row actions">
         <button disabled={busy} onClick={addFirstPerson}>
-          ＋ Add person
+          {t.toolbar.addPerson}
         </button>
         <button disabled={!service.canUndo() || busy} onClick={() => service.undo()}>
-          ↶ Undo
+          {t.toolbar.undo}
         </button>
         <button disabled={!service.canRedo() || busy} onClick={() => service.redo()}>
-          ↷ Redo
+          {t.toolbar.redo}
         </button>
-        <button onClick={onOpenHistory}>History</button>
+        <button onClick={onOpenHistory}>{t.toolbar.history}</button>
         <button onClick={onOpenBin}>
-          Recently deleted{binCount > 0 ? ` (${binCount})` : ''}
+          {t.toolbar.bin}{binCount > 0 ? ` (${binCount})` : ''}
         </button>
-        <button onClick={doExport}>Download</button>
+        <button onClick={doExport}>{t.toolbar.download}</button>
         <button disabled={busy} onClick={() => importInputRef.current?.click()}>
-          Upload
+          {t.toolbar.upload}
         </button>
         <input
           ref={importInputRef}
